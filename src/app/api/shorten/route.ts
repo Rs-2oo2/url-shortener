@@ -1,24 +1,26 @@
-import { NextRequest, NextResponse } from 'next/server';
+// src/app/api/shorten/route.ts
+import { NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { nanoid } from 'nanoid';
 
-export async function POST(request: NextRequest) {
-  const { url } = await request.json();
+const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || 'https://url-shortener-eight-tan.vercel.app';
+
+export async function POST(req: Request) {
+  const { url } = await req.json();
 
   if (!url || !url.startsWith('http')) {
-    return NextResponse.json({ error: 'Valid URL required' }, { status: 400 });
+    return NextResponse.json({ error: 'Invalid URL' }, { status: 400 });
   }
 
-  const code = nanoid(7); // e.g., AbCdE12
+  const code = nanoid(7);
 
-  await prisma.link.create({
-    data: {
-      code,
-      url,
-    },
+  await prisma.link.upsert({
+    where: { url },
+    update: { clicks: { increment: 0 } },
+    create: { code, url },
   });
 
-  const shortUrl = `${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/${code}`;
+  const shortUrl = `${BASE_URL}/${code}`;
 
-  return NextResponse.json({ shortUrl, code });
+  return NextResponse.json({ shortUrl });
 }
