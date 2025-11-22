@@ -3,7 +3,7 @@ import { NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { nanoid } from 'nanoid';
 
-const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || 'https://url-shortener-eight-tan.vercel.app';
+const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
 
 export async function POST(req: Request) {
   const { url } = await req.json();
@@ -14,10 +14,12 @@ export async function POST(req: Request) {
 
   const code = nanoid(7);
 
-  await prisma.link.upsert({
-    where: { url },
-    update: { clicks: { increment: 0 } },
-    create: { code, url },
+  // Just create — don't upsert (simpler & faster)
+  const link = await prisma.link.create({
+    data: {
+      code,
+      url,
+    },
   });
 
   const shortUrl = `${BASE_URL}/${code}`;
