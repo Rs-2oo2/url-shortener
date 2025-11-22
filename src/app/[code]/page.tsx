@@ -6,17 +6,23 @@ export default async function RedirectPage({
 }: {
   params: Promise<{ code: string }>;
 }) {
-  const { code } = await params;   // ← THIS LINE IS THE FIX
+  const { code } = await params;
 
-  const link = await prisma.link.findUnique({
-    where: { code },
-  });
-
-  if (!link) {
+  let link;
+  try {
+    link = await prisma.link.findUnique({
+      where: { code },
+    });
+  } catch (error) {
+    console.error('DB query error:', error);
     notFound();
   }
 
-  // Track click (fire and forget)
+  if (!link) {
+    notFound();  // Shows Vercel's 404, but you can customize
+  }
+
+  // Track click
   fetch(`${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/api/click`, {
     method: 'POST',
     body: JSON.stringify({ code }),

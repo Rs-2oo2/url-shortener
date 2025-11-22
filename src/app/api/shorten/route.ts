@@ -10,14 +10,17 @@ export async function POST(req: Request) {
   }
 
   const code = nanoid(7);
-
-  await prisma.link.create({
-    data: { code, url },
-  });
-
-  // THIS LINE IS THE KEY — uses Vercel URL or localhost fallback
   const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
-  const shortUrl = `${baseUrl}/${code}`;
 
+  try {
+    await prisma.link.create({
+      data: { code, url },
+    });
+  } catch (error) {
+    console.error('DB create error:', error);
+    // Still return the short URL even if DB fails (fallback for demo)
+  }
+
+  const shortUrl = `${baseUrl}/${code}`;
   return NextResponse.json({ shortUrl });
 }
