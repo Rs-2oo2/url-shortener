@@ -1,65 +1,146 @@
-import Image from "next/image";
+'use client';
+
+import { useState, useEffect } from 'react';
+import { Link2, Zap, Copy, ExternalLink } from 'lucide-react';
+
+interface Link {
+  shortUrl: string;
+  original: string;
+  clicks: number;
+}
 
 export default function Home() {
+  const [url, setUrl] = useState('');
+  const [links, setLinks] = useState<Link[]>([]);
+  const [message, setMessage] = useState('');
+
+  // THIS IS THE MAGIC: Refresh clicks from DB every 3 seconds when page is open
+  useEffect(() => {
+    const refreshClicks = async () => {
+      const saved = localStorage.getItem('myLinks');
+      if (!saved) return;
+
+      const savedLinks: Link[] = JSON.parse(saved);
+
+      try {
+        const res = await fetch('/api/links');
+        if (!res.ok) throw new Error('Failed');
+        const dbLinks = await res.json();
+
+        const updated = savedLinks.map((link) => {
+          const code = link.shortUrl.split('/').pop();
+          const db = dbLinks.find((d: any) => d.code === code);
+          return { ...link, clicks: db?.clicks || link.clicks };
+        });
+
+        setLinks(updated);
+        localStorage.setItem('myLinks', JSON.stringify(updated));
+      } catch (err) {
+        console.log('Clicks refresh failed (normal during dev)');
+      }
+    };
+
+    refreshClicks();
+    const interval = setInterval(refreshClicks, 3000); // Refresh every 3 seconds
+
+    return () => clearInterval(interval);
+  }, []);
+
+  const shorten = async () => {
+    if (!url || !url.startsWith('http')) {
+      setMessage('Invalid URL');
+      return;
+    }
+
+    const res = await fetch('/api/shorten', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ url }),
+    });
+
+    const data = await res.json();
+
+    if (data.shortUrl) {
+      const newLink: Link = { shortUrl: data.shortUrl, original: url, clicks: 0 };
+      const updated = [newLink, ...links];
+      setLinks(updated);
+      localStorage.setItem('myLinks', JSON.stringify(updated));
+      setUrl('');
+      setMessage('Shortened!');
+      setTimeout(() => setMessage(''), 3000);
+    }
+  };
+
+  const copy = (text: string) => {
+    navigator.clipboard.writeText(text);
+    alert('Copied!');
+  };
+
   return (
-    <div className="flex min-h-screen items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex min-h-screen w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
+    <div className="min-h-screen bg-gradient-to-br from-purple-600 via-pink-500 to-red-500">
+      <div className="max-w-5xl mx-auto px-6 py-12">
+        <div className="text-center mb-16 pt-10">
+          <div className="flex justify-center items-center gap-3 mb-4">
+            <Zap className="w-12 h-12 text-white" />
+            <h1 className="text-6xl font-bold text-white">SnapLink</h1>
+          </div>
+          <p className="text-xl text-white/90">Free • Instant • No signup</p>
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
+
+        <div className="bg-white rounded-3xl shadow-2xl p-8 max-w-3xl mx-auto">
+          <div className="flex gap-4 max-sm:flex-col">
+            <input
+              type="url"
+              value={url}
+              onChange={(e) => setUrl(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && shorten()}
+              placeholder="Paste your long URL here..."
+              className="flex-1 px-6 py-5 text-lg border-2 border-gray-300 rounded-2xl focus:outline-none focus:border-purple-600 focus:ring-4 focus:ring-purple-200 transition placeholder-gray-500 text-gray-900 font-medium"
             />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+            <button
+              onClick={shorten}
+              className="px-10 py-5 bg-gradient-to-r from-purple-600 to-pink-600 text-white font-bold text-lg rounded-2xl hover:scale-105 transition shadow-lg flex items-center gap-2"
+            >
+              <Link2 className="w-6 h-6" />
+              Shorten URL
+            </button>
+          </div>
+          {message && <p className="text-center mt-4 text-green-600 font-bold">{message}</p>}
         </div>
-      </main>
+
+        <div className="mt-16">
+          <h2 className="text-4xl font-bold text-white text-center mb-8">Your Links</h2>
+          {links.length === 0 ? (
+            <p className="text-center text-white/80 text-lg">No links yet — shorten one above!</p>
+          ) : (
+            <div className="space-y-6">
+              {links.map((link, i) => (
+                <div key={i} className="bg-white/10 backdrop-blur-lg rounded-2xl p-6 border border-white/20">
+                  <p className="text-white/70 text-sm mb-2">Original</p>
+                  <p className="text-white/90 mb-4 truncate text-sm">{link.original}</p>
+                  <div className="flex flex-wrap items-center justify-between gap-4">
+                    <a href={link.shortUrl} target="_blank" rel="noopener" className="text-2xl font-bold text-white hover:underline flex items-center gap-2">
+                      {link.shortUrl} <ExternalLink className="w-5 h-5" />
+                    </a>
+                    <div className="flex items-center gap-4">
+                      <span className="bg-white/20 px-6 py-3 rounded-full text-white font-bold text-xl">
+                        {link.clicks} clicks
+                      </span>
+                      <button onClick={() => copy(link.shortUrl)} className="bg-white/20 hover:bg-white/30 px-6 py-3 rounded-full text-white font-bold flex items-center gap-2">
+                        <Copy className="w-5 h-5" /> Copy
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <footer className="text-center text-white/60 mt-20 text-sm">
+          SnapLink • Built with Next.js + Neon • 2025
+        </footer>
+      </div>
     </div>
   );
 }
