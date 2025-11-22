@@ -1,9 +1,6 @@
-// src/app/api/shorten/route.ts
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { nanoid } from 'nanoid';
-
-const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
 
 export async function POST(req: Request) {
   const { url } = await req.json();
@@ -14,15 +11,13 @@ export async function POST(req: Request) {
 
   const code = nanoid(7);
 
-  // Just create — don't upsert (simpler & faster)
-  const link = await prisma.link.create({
-    data: {
-      code,
-      url,
-    },
+  await prisma.link.create({
+    data: { code, url },
   });
 
-  const shortUrl = `${BASE_URL}/${code}`;
+  // THIS LINE IS THE KEY — uses Vercel URL or localhost fallback
+  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
+  const shortUrl = `${baseUrl}/${code}`;
 
   return NextResponse.json({ shortUrl });
 }
